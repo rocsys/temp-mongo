@@ -7,6 +7,8 @@
 //! Windows support is planned by picking a free TCP port on the loopback adapter.
 //!
 //! # Example
+//!
+//! See the [example in the repository](https://github.com/rocsys/temp-mongo/blob/main/examples/example.rs) for a more detailed example using [`assert2`](https://crates.io/crates/assert2).
 //! ```
 //! # async fn foo() -> Result<(), Box<dyn std::error::Error>> {
 //! use temp_mongo::TempMongo;

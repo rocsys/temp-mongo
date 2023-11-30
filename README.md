@@ -9,6 +9,8 @@ On Unix platforms, the client is connected over a Unix socket.
 Windows support is planned by picking a free TCP port on the loopback adapter.
 
 ## Example
+
+See the [example in the repository](https://github.com/rocsys/temp-mongo/blob/main/examples/example.rs) for a more detailed example using [`assert2`](https://crates.io/crates/assert2).
 ```rust
 use temp_mongo::TempMongo;
 use mongodb::bson::doc;
