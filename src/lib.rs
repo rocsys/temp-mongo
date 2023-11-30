@@ -10,7 +10,9 @@
 //!
 //! See the [example in the repository](https://github.com/rocsys/temp-mongo/blob/main/examples/example.rs) for a more detailed example using [`assert2`](https://crates.io/crates/assert2).
 //! ```
-//! # async fn foo() -> Result<(), Box<dyn std::error::Error>> {
+//! # #[cfg_attr(feature = "tokio-runtime", tokio::main)]
+//! # #[cfg_attr(feature = "async-std-runtime", async_std::main)]
+//! # async fn main() -> Result<(), Box<dyn std::error::Error>> {
 //! use temp_mongo::TempMongo;
 //! use mongodb::bson::doc;
 //!
