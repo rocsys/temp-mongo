@@ -1,0 +1,47 @@
+name: CI
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["*"]
+
+jobs:
+  stable:
+    name: Build and test on stable
+    strategy:
+      matrix:
+        os: [ "ubuntu-22.04" ]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@master
+      - name: Install mongodb
+        run: |
+          sudo cp .github/workflows/mongodb-org-7.0.gpg /usr/share/keyrings/
+          sudo cp .github/workflows/mongodb-org-7.0.list /etc/apt/sources.list.d/
+          sudo apt-get update -y
+          sudo apt-get install -y --no-install-recommends mongodb-org-server
+      - name: Install latest stable Rust toolchain
+        run: |
+          rustup install --profile minimal stable
+          rustup default stable
+      - name: Build (tokio)
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --release --color=always --all-targets
+      - name: Test (tokio)
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: --release --color=always
+      - name: Build (async-std)
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --release --color=always --no-default-features --features async-std-runtime --all-targets
+      - name: Test (tokio)
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: --release --color=always --no-default-features --features async-std-runtime
