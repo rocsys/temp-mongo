@@ -13,6 +13,8 @@ use std::process::Command;
 /// Unless disabled, the temporary directory is deleted when this object is dropped.
 pub struct TempMongo {
 	tempdir: TempDir,
+	socket_path: PathBuf,
+	log_path: PathBuf,
 	client: mongodb::Client,
 	server: KillOnDrop,
 }
@@ -38,6 +40,16 @@ impl TempMongo {
 	/// Get the path of the temporary state directory.
 	pub fn directory(&self) -> &Path {
 		self.tempdir.path()
+	}
+
+	/// Get the path of the listening socket of the MongoDB instance.
+	pub fn socket_path(&self) -> &Path {
+		&self.socket_path
+	}
+
+	/// Get the path of the log file of the MongoDB instance.
+	pub fn log_path(&self) -> &Path {
+		&self.log_path
 	}
 
 	/// Get a client for the MongDB instance.
@@ -118,7 +130,13 @@ impl TempMongo {
 		client.list_databases(None, None).await
 			.map_err(|e| ErrorInner::Connect(socket_path.display().to_string(), e))?;
 
-		Ok(Self { tempdir, server, client })
+		Ok(Self {
+			tempdir,
+			socket_path,
+			log_path,
+			server,
+			client,
+		})
 	}
 }
 
