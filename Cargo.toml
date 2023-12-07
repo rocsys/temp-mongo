@@ -5,6 +5,11 @@ license = "MIT"
 version = "0.1.0"
 edition = "2021"
 
+keywords = ["mongo", "database", "test", "temporary", "isolated"]
+categories = ["development-tools::testing", "database", "virtualization"]
+repository = "https://github.com/rocsys/temp-mongo"
+readme = "README.md"
+
 [features]
 default = ["tokio-runtime"]
 tokio-runtime = ["mongodb/tokio-runtime"]
