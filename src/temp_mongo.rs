@@ -19,6 +19,17 @@ pub struct TempMongo {
 	server: KillOnDrop,
 }
 
+impl std::fmt::Debug for TempMongo {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		f.debug_struct("TempMongo")
+			.field("tempdir", &self.tempdir.path())
+			.field("socket_path", &self.socket_path())
+			.field("log_path", &self.log_path())
+			.field("server_pid", &self.server.id())
+			.finish_non_exhaustive()
+	}
+}
+
 impl TempMongo {
 	/// Spawn a new MongoDB instance with a temporary state directory.
 	pub async fn new() -> Result<Self, Error> {
@@ -143,6 +154,7 @@ impl TempMongo {
 /// Builder for customizing your [`TempMongo`] object.
 ///
 /// After configuring the desirec options, run [`TempMongoBuilder::spawn()`].
+#[derive(Debug)]
 pub struct TempMongoBuilder {
 	/// The parent directory for the temporary directory.
 	///
