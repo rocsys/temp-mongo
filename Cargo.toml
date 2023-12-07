@@ -2,7 +2,7 @@
 name = "temp-mongo"
 description = "temporary mongo instance meant for unit tests"
 license = "MIT"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 
 keywords = ["mongo", "database", "test", "temporary", "isolated"]
