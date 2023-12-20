@@ -110,14 +110,16 @@ impl TempMongo {
 
 	/// Create the temporary directory and spawn a server based on the configuration of the given builder object.
 	async fn from_builder(builder: &TempMongoBuilder) -> Result<Self, Error> {
-		let tempdir = builder.make_temp_dir().map_err(ErrorInner::MakeTempDir)?;
-		let db_dir = tempdir.path().join("db");
-		let socket_path = tempdir.path().join("mongod.sock");
-		let log_path = tempdir.path().join("mongod.log");
+		let tempdir = builder.make_temp_dir().map_err(ErrorInner::MakeTempDir)?; //makes a temporary directory --> handles errors that might occur
+		let db_dir = tempdir.path().join("db"); // path for database directory
+		let socket_path = tempdir.path().join("mongod.sock"); //unix socket for mongodb database
+		let log_path = tempdir.path().join("mongod.log"); //path for logging dir is generated
 
-		std::fs::create_dir(&db_dir)
+		//Creation of Database directory
+		std::fs::create_dir(&db_dir) 
 			.map_err(|e| ErrorInner::MakeDbDir(db_dir.clone(), e))?;
 
+		//Starting mongo DB server with various arguments
 		let server = Command::new(builder.get_command())
 			.arg("--bind_ip")
 			.arg(&socket_path)
@@ -129,8 +131,10 @@ impl TempMongo {
 			.arg("--noauth")
 			.spawn()
 			.map_err(|e| ErrorInner::SpawnServer(builder.get_command_string(), e))?;
-		let server = KillOnDrop::new(server);
+		let server = KillOnDrop::new(server); //wrapped in kill on drop to ensure server is terminated when killOnDop instance is dropped
 
+		//Configuring mongo db client using unix socket path
+		// Client is used to interact with monoDB server
 		let client_options = mongodb::options::ClientOptions::builder()
 			.hosts(vec![mongodb::options::ServerAddress::Unix { path: socket_path.clone() }])
 			.connect_timeout(Duration::from_millis(10))
@@ -138,15 +142,17 @@ impl TempMongo {
 		let client = mongodb::Client::with_options(client_options)
 			.map_err(|e| ErrorInner::Connect(socket_path.display().to_string(), e))?;
 
+		// ensuring the server is running and accessible
 		client.list_databases(None, None).await
 			.map_err(|e| ErrorInner::Connect(socket_path.display().to_string(), e))?;
 
+		// new tempMongo instance is returned, uses Self keyword to set struct variables
 		Ok(Self {
-			tempdir,
-			socket_path,
-			log_path,
-			server,
-			client,
+			tempdir, //represents temporary directory where the mongodb instance stores data
+			socket_path, // specify location of the unix socket file through which the mongodb server communicates --> essential part that allows mongoDb client and other tools to connect to the server
+			log_path, //path where mongodb server writes logs
+			server, // holds the process handler for mongodb server, essential for starting, stopping and restarting server
+			client, // client is used to interact programmatically with the mongodb server. Allows database operations following the CRUD model
 		})
 	}
 }
@@ -155,6 +161,7 @@ impl TempMongo {
 ///
 /// After configuring the desirec options, run [`TempMongoBuilder::spawn()`].
 #[derive(Debug)]
+
 pub struct TempMongoBuilder {
 	/// The parent directory for the temporary directory.
 	///
