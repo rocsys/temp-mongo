@@ -1,6 +1,8 @@
 use std::ffi::{OsStr, OsString};
 use std::path::{Path, PathBuf};
 use std::time::Duration;
+use crate::util::SeedData;
+use futures_util::stream::TryStreamExt;
 
 use crate::error::ErrorInner;
 use crate::util::{KillOnDrop, TempDir};
@@ -62,6 +64,11 @@ impl TempMongo {
 	pub fn log_path(&self) -> &Path {
 		&self.log_path
 	}
+
+	/// Seed the database with the given data
+	pub async fn seed_data(&self, seed_data: &SeedData) -> mongodb::error::Result<()> {
+        seed_data.seed(&self.client).await
+    }
 
 	/// Get a client for the MongDB instance.
 	///
@@ -155,6 +162,24 @@ impl TempMongo {
 			client, // client is used to interact programmatically with the mongodb server. Allows database operations following the CRUD model
 		})
 	}
+
+    /// Method to retrieve and print documents from a specified collection
+	pub async fn print_documents(&self, db_name: &str, collection_name: &str) -> mongodb::error::Result<()> {
+        let collection = self.client.database(db_name).collection(collection_name);
+        
+        // Query the collection for all documents
+        let mut cursor = collection.find(None, None).await?;
+        
+        // Iterate over the documents in the cursor and print them
+        while let Some(result) = cursor.try_next().await? {
+            let document: mongodb::bson::Document = result;
+            println!("{:?}", document);
+        }
+
+        Ok(())
+    }
+
+
 }
 
 /// Builder for customizing your [`TempMongo`] object.
