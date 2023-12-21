@@ -146,157 +146,70 @@ impl TempMongo {
         Ok(())
     }
 
-  
-   
-    // #[cfg(unix)]
-    // /// Create the temporary directory and spawn a server based on the configuration of the given builder object.
-    // async fn from_builder(builder: &TempMongoBuilder) -> Result<Self, Error> {
-    //   let tempdir = builder.make_temp_dir().map_err(ErrorInner::MakeTempDir)?; //makes a temporary directory --> handles errors that might occur
-    //   let db_dir = tempdir.path().join("db"); // path for database directory
-    //   let socket_path = tempdir.path().join("mongod.sock"); //unix socket for mongodb database
-    //   let log_path = tempdir.path().join("mongod.log"); //path for logging dir is generated
-    //   let seed = SeedData::new();
-
-    //   //Creation of Database directory
-    //   std::fs::create_dir(&db_dir) 
-    //     .map_err(|e| ErrorInner::MakeDbDir(db_dir.clone(), e))?;
-
-    //   //Starting mongo DB server with various arguments
-    //   let server = Command::new(builder.get_command())
-    //     .arg("--bind_ip")
-    //     .arg(&socket_path)
-    //     .arg("--dbpath")
-    //     .arg(db_dir)
-    //     .arg("--logpath")
-    //     .arg(&log_path)
-    //     .arg("--nounixsocket")
-    //     .arg("--noauth")
-    //     .spawn()
-    //     .map_err(|e| ErrorInner::SpawnServer(builder.get_command_string(), e))?;
-    //   let server = KillOnDrop::new(server); //wrapped in kill on drop to ensure server is terminated when killOnDop instance is dropped
-
-    //   //Configuring mongo db client using unix socket path
-    //   // Client is used to interact with monoDB server
-    //   let client_options = mongodb::options::ClientOptions::builder()
-    //     .hosts(vec![mongodb::options::ServerAddress::Unix { path: socket_path.clone() }])
-    //     .connect_timeout(Duration::from_millis(10))
-    //     .build();
-    //   let client = mongodb::Client::with_options(client_options)
-    //     .map_err(|e| ErrorInner::Connect(socket_path.display().to_string(), e))?;
-
-    //   // ensuring the server is running and accessible
-    //   client.list_databases(None, None).await
-    //     .map_err(|e| ErrorInner::Connect(socket_path.display().to_string(), e))?;
-
-    //   // new tempMongo instance is returned, uses Self keyword to set struct variables
-    //   Ok(Self {
-    //     tempdir, //represents temporary directory where the mongodb instance stores data
-    //     socket_path, // specify location of the unix socket file through which the mongodb server communicates --> essential part that allows mongoDb client and other tools to connect to the server
-    //     log_path, //path where mongodb server writes logs
-    //     server, // holds the process handler for mongodb server, essential for starting, stopping and restarting server
-    //     client, // client is used to interact programmatically with the mongodb server. Allows database operations following the CRUD model
-    //     seed,
-    //   })
-    // }
-
 
  	/// Create the temporary directory and spawn a server based on the configuration of the given builder object.
-    async fn from_builder(builder: &TempMongoBuilder) -> Result<Self, Error> {
-        let tempdir = builder.make_temp_dir().map_err(ErrorInner::MakeTempDir)?;
-        let db_dir = tempdir.path().join("db");
-		let socket_path = tempdir.path().join("mongod.sock"); //unix socket for mongodb database
-        let log_path = tempdir.path().join("mongod.log");
-        let seed = SeedData::new();
-        
-        // Create MongoDB data directory
-        std::fs::create_dir(&db_dir).map_err(|e| ErrorInner::MakeDbDir(db_dir.clone(), e))?;
-
-        // Define MongoDB IP address and port for Windows
-        let mongodb_address = "127.0.0.1:27017"; // Adjust as necessary
-
-        // Start MongoDB server process
-		#[cfg(windows)]
-        let server = Command::new(builder.get_command())
-            .arg("--bind_ip")
-            .arg(mongodb_address)
-            .arg("--dbpath")
-            .arg(&db_dir)
-            .arg("--logpath")
-            .arg(&log_path)
-            .arg("--noauth")
-            .spawn()
-            .map_err(|e| ErrorInner::SpawnServer(builder.get_command_string(), e))?;
-		#[cfg(windows)]
-        let server = KillOnDrop::new(server);
+	 async fn from_builder(builder: &TempMongoBuilder) -> Result<Self, Error> {
+		let tempdir = builder.make_temp_dir().map_err(ErrorInner::MakeTempDir)?;
+		let db_dir = tempdir.path().join("db");
+		let log_path = tempdir.path().join("mongod.log");
+		let seed = SeedData::new();
+		
+		// Create MongoDB data directory
+		std::fs::create_dir(&db_dir).map_err(|e| ErrorInner::MakeDbDir(db_dir.clone(), e))?;
 	
-
+		// Define server address and start MongoDB server process
+		let server_address: String;
+		let socket_path: PathBuf;
 		#[cfg(windows)]
-        // Configure MongoDB client options for TCP/IP connection
-        let client_options = mongodb::options::ClientOptions::builder()
-            .hosts(vec![mongodb::options::ServerAddress::Tcp {
-                host: "127.0.0.1".to_string(),
-                port: Some(27017),
-            }])
-            .connect_timeout(Duration::from_millis(10))
-            .build();
-
-		#[cfg(windows)]
-		let client = mongodb::Client::with_options(client_options)
-            .map_err(|e| ErrorInner::Connect(mongodb_address.to_string(), e))?;
-
-		// Test MongoDB connection
-		#[cfg(windows)]
-		client
-			.list_databases(None, None)
-			.await
-			.map_err(|e| ErrorInner::Connect(mongodb_address.to_string(), e))?;
-
-
-				
-		//Starting mongo DB server with various arguments
+		{
+			server_address = "127.0.0.1:27017".to_string(); // MongoDB IP address and port for Windows
+			socket = PathBuf::from(server_address);
+		}
 		#[cfg(unix)]
+		{
+			server_address = tempdir.path().join("mongod.sock").display().to_string(); // Unix socket for MongoDB
+			socket_path = tempdir.path().join("mongod.sock");
+		}
+	
 		let server = Command::new(builder.get_command())
 			.arg("--bind_ip")
-			.arg(&socket_path)
+			.arg(&server_address)
 			.arg("--dbpath")
-			.arg(db_dir)
+			.arg(&db_dir)
 			.arg("--logpath")
 			.arg(&log_path)
-			.arg("--nounixsocket")
 			.arg("--noauth")
 			.spawn()
 			.map_err(|e| ErrorInner::SpawnServer(builder.get_command_string(), e))?;
-		#[cfg(unix)]
 		let server = KillOnDrop::new(server); //wrapped in kill on drop to ensure server is terminated when killOnDop instance is dropped
 
-		//Configuring mongo db client using unix socket path
-		// Client is used to interact with monoDB server
-		#[cfg(unix)]
+		// Configure MongoDB client options
 		let client_options = mongodb::options::ClientOptions::builder()
-			.hosts(vec![mongodb::options::ServerAddress::Unix { path: socket_path.clone() }])
+			.hosts(vec![if cfg!(windows) {
+				mongodb::options::ServerAddress::Tcp { host: "127.0.0.1".to_string(), port: Some(27017) }
+			} else {
+				mongodb::options::ServerAddress::Unix { path: PathBuf::from(&server_address) }
+			}])
 			.connect_timeout(Duration::from_millis(10))
 			.build();
-
-		#[cfg(unix)]
-		let client = mongodb::Client::with_options(client_options)
-			.map_err(|e| ErrorInner::Connect(socket_path.display().to_string(), e))?;
-
-		#[cfg(unix)]
-		client.list_databases(None, None).await
-			.map_err(|e| ErrorInner::Connect(socket_path.display().to_string(), e))?;
 	
-
-      
-        Ok(Self {
-            tempdir,
-            socket_path: PathBuf::from(mongodb_address), // Updated for Windows
-            log_path,
-            server,
-            client,
-            seed,
-        })
-    }
-
+		// Common MongoDB client configuration
+		let client = mongodb::Client::with_options(client_options)
+			.map_err(|e| ErrorInner::Connect(server_address.clone(), e))?;
+	
+		// Test MongoDB connection
+		client.list_databases(None, None).await
+			.map_err(|e| ErrorInner::Connect(server_address, e))?;
+	
+		Ok(Self {
+			tempdir,
+			socket_path,
+			log_path,
+			server,
+			client,
+			seed,
+		})
+	}
 }
 
 /// Builder for customizing your [`TempMongo`] object.
