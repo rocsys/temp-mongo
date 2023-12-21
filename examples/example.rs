@@ -35,13 +35,13 @@ async fn main() {
 		];
 	let mut seed_data = mongo.seed().new_in("test_db2", "trex", documents);
 
-	// Option 2: Using seeder via excel
-	//seeding data into mongodb instance
 	match mongo.seed_data(&seed_data).await {
 		Ok(_) => println!("Data seeded successfully."),
 		Err(e) => println!("Error seeding data: {:?}", e),
 	}
-
+	
+	// Option 2: Using seeder via excel
+	//seeding data into mongodb instance
 	let path = std::path::Path::new("./spreadsheet.xlsx");
 	let excel = mongo.seed().from_excel(path, "Blad1").unwrap();
 	seed_data = mongo.seed().new_in("test_db2", "trex", excel);
