@@ -1,7 +1,6 @@
 use assert2::{assert, let_assert};
 use mongodb::bson::{doc, Document};
 use temp_mongo::TempMongo;
-use temp_mongo::SeedData;
 
 #[cfg_attr(feature = "tokio-runtime", tokio::main)]
 #[cfg_attr(feature = "async-std-runtime", async_std::main)]
@@ -29,18 +28,14 @@ async fn main() {
 		println!("Document: {:#?}", current);
 	}
 
+	// Option 1: Using documents directly
+	let documents =  vec![
+		mongodb::bson::doc! {"name": "Alice", "age": 30},
+		mongodb::bson::doc! {"name": "Bob", "age": 25},
+		];
+	let mut seed_data = mongo.seed().new_in("test_db2", "trex", documents);
 
-	// Option 2: Using seeder
-	// Creating seeding options for mongodb instance
-	let mut seed_data = SeedData {
-		database_name: "test_db".to_string(),
-		collection_name: "test_collection".to_string(),
-		documents: vec![
-			mongodb::bson::doc! {"name": "Alice", "age": 30},
-			mongodb::bson::doc! {"name": "Bob", "age": 25},
-		],
-	};
-
+	// Option 2: Using seeder via excel
 	//seeding data into mongodb instance
 	match mongo.seed_data(&seed_data).await {
 		Ok(_) => println!("Data seeded successfully."),
@@ -48,23 +43,18 @@ async fn main() {
 	}
 
 	let path = std::path::Path::new("./spreadsheet.xlsx");
+	let excel = mongo.seed().from_excel(path, "Blad1").unwrap();
+	seed_data = mongo.seed().new_in("test_db2", "trex", excel);
 
-	let excel = SeedData::from_excel(path, "Blad1").unwrap();
-
-	seed_data = SeedData {
-		database_name: "test_db2".to_string(),
-		collection_name: "test_collection2".to_string(),
-		documents: excel,
-	};
 
 	//seeding data into mongodb instance
 	match mongo.seed_data(&seed_data).await {
 		Ok(_) => println!("Data seeded successfully."),
-		Err(e) => println!("Error seeding data: {:?}", e),
+		Err(e) => println!("Error seeding data: {:?}", e)
 	}
 
-	// Now print the documents
-	match mongo.print_documents("test_db2", "test_collection2").await {
+	// Advanced printing 
+	match mongo.print_documents("test_db2", "trex").await {
 		Ok(_) => println!("Data succesfully retrieved."),
 		Err(e) => println!("Error retrieving data: {:?}", e),
 	};

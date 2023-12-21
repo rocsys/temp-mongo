@@ -19,6 +19,7 @@ pub struct TempMongo {
 	log_path: PathBuf,
 	client: mongodb::Client,
 	server: KillOnDrop,
+	seed: SeedData,
 }
 
 impl std::fmt::Debug for TempMongo {
@@ -65,7 +66,14 @@ impl TempMongo {
 		&self.log_path
 	}
 
-	/// Seed the database with the given data
+	/// Get the path of the log file of the MongoDB instance.
+	pub fn seed(&self) -> &SeedData {
+		&self.seed
+	}
+
+	/// Seed the MongoDB instance with the given documents.
+	/// # Arguments
+	/// * `seed_data` - The seed data to insert into the database
 	pub async fn seed_data(&self, seed_data: &SeedData) -> mongodb::error::Result<()> {
         seed_data.seed(&self.client).await
     }
@@ -121,7 +129,7 @@ impl TempMongo {
 		let db_dir = tempdir.path().join("db"); // path for database directory
 		let socket_path = tempdir.path().join("mongod.sock"); //unix socket for mongodb database
 		let log_path = tempdir.path().join("mongod.log"); //path for logging dir is generated
-
+		let seed = SeedData::new();
 		//Creation of Database directory
 		std::fs::create_dir(&db_dir) 
 			.map_err(|e| ErrorInner::MakeDbDir(db_dir.clone(), e))?;
@@ -160,10 +168,16 @@ impl TempMongo {
 			log_path, //path where mongodb server writes logs
 			server, // holds the process handler for mongodb server, essential for starting, stopping and restarting server
 			client, // client is used to interact programmatically with the mongodb server. Allows database operations following the CRUD model
+			seed,
 		})
 	}
 
-    /// Method to retrieve and print documents from a specified collection
+    /// Advanced printing of documents in a collection
+	/// # Arguments
+	/// * `db_name` - The name of the database
+	/// * `collection_name` - The name of the collection
+	/// # Errors
+	/// Returns an error if any MongoDB operation fails during the printing process.
 	pub async fn print_documents(&self, db_name: &str, collection_name: &str) -> mongodb::error::Result<()> {
         let collection = self.client.database(db_name).collection(collection_name);
         
