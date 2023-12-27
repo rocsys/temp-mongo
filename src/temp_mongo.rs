@@ -8,6 +8,7 @@ use crate::error::ErrorInner;
 use crate::util::{KillOnDrop, TempDir};
 use crate::Error;
 use std::process::Command;
+use mongodb::options::{ClientOptions, ServerAddress};
 
 /// A temporary MongoDB instance.
 ///
@@ -200,15 +201,31 @@ impl TempMongo {
 			.map_err(|e| ErrorInner::SpawnServer(builder.get_command_string(), e))?;
 		let server = KillOnDrop::new(server);
 
-		// Configure MongoDB client options compatible with the OS
-		let client_options = mongodb::options::ClientOptions::builder()
-			.hosts(vec![if cfg!(windows) {
-				mongodb::options::ServerAddress::Tcp { host: "127.0.0.1".to_string(), port: Some(27017) }
-			} else {
-				mongodb::options::ServerAddress::Unix { path: socket_path.clone() }
-			}])
-			.connect_timeout(Duration::from_millis(10))
-			.build();
+        let mut hosts=Vec::new();
+
+        // Conditional configuration based on the target OS
+        #[cfg(unix)]
+        {
+            // For Unix-like systems, use a Unix socket
+            // Ensure `socket_path` is defined appropriately for your environment
+            hosts.push(ServerAddress::Unix { path: socket_path.clone() });
+        }
+
+        #[cfg(windows)]
+        {
+            // For Windows, use TCP with localhost and the default MongoDB port
+            hosts.push(ServerAddress::Tcp {
+                host: "127.0.0.1".to_string(),
+                port: Some(27017),
+            });
+        }
+
+// Configure MongoDB client options compatible with the OS
+        let client_options = ClientOptions::builder()
+            .hosts(hosts)
+            .connect_timeout(Duration::from_millis(10))
+            .build();
+
 
 		// Create a MongoDB client with the configured options
 		let client = mongodb::Client::with_options(client_options)
