@@ -21,7 +21,6 @@ jobs:
           toolchain: stable
           override: true
 
-
       - name: Cache cargo registry
         uses: actions/cache@v2
         with:
@@ -31,7 +30,12 @@ jobs:
             target
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
-      
+      - name: Install MongoDB
+        run: |
+          choco install mongodb --version 4.4.6
+          mkdir C:\data\db
+          C:\ProgramData\chocolatey\lib\mongodb\tools\mongod --install --logpath C:\data\log\mongod.log --dbpath C:\data\db
+          Start-Service MongoDB
 
       - name: Build
         uses: actions-rs/cargo@v1
@@ -43,4 +47,5 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: test
-          args: --release
+          args: --release --color=always --no-default-features --features async-std-runtime
+
