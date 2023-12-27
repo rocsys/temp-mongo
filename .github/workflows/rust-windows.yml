@@ -30,17 +30,11 @@ jobs:
             target
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
-      - name: Install MongoDB
+      - name: Run MongoDB in Docker
         run: |
-          choco install mongodb --version 4.4.6
-          mkdir C:\data\db
-
-      - name: Start MongoDB Service
-        run: |
-          $mongodPath = Get-Command mongod | Select-Object -ExpandProperty Source
-          & $mongodPath --install --logpath C:\data\log\mongod.log --dbpath C:\data\db
-          Start-Service MongoDB
-      
+          docker run --name mongodb -d -p 27017:27017 mongo:4.4.6
+          # Wait for MongoDB to fully start
+          Start-Sleep -Seconds 10
 
       - name: Build
         uses: actions-rs/cargo@v1
@@ -53,4 +47,3 @@ jobs:
         with:
           command: test
           args: --release --color=always --no-default-features --features async-std-runtime
-
