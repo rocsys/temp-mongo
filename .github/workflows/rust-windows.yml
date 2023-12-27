@@ -34,8 +34,13 @@ jobs:
         run: |
           choco install mongodb --version 4.4.6
           mkdir C:\data\db
-          C:\ProgramData\chocolatey\lib\mongodb\tools\mongod --install --logpath C:\data\log\mongod.log --dbpath C:\data\db
+
+      - name: Start MongoDB Service
+        run: |
+          $mongodPath = Get-Command mongod | Select-Object -ExpandProperty Source
+          & $mongodPath --install --logpath C:\data\log\mongod.log --dbpath C:\data\db
           Start-Service MongoDB
+      
 
       - name: Build
         uses: actions-rs/cargo@v1
