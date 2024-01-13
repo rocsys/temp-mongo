@@ -35,9 +35,9 @@ async fn main() {
 		mongodb::bson::doc! {"name": "Bob", "age": 25},
 	];
 	
-	let seed_data = mongo.seed_row("test_db2", "trex", documents);
+	let prepared_seed_data = mongo.prepare_seed_document("test_db2", "trex", documents);
 
-	match mongo.seed_document(&seed_data).await {
+	match mongo.seed_document(&prepared_seed_data).await {
 		Ok(_) => println!("Data seeded successfully."),
 		Err(e) => println!("Error seeding data: {:?}", e),
 	}

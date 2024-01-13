@@ -15,17 +15,17 @@ use std::time::Duration;
 /// All state of the MongoDB instance is stored in a temporary directory.
 /// Unless disabled, the temporary directory is deleted when this object is dropped.
 pub struct TempMongo {
-    tempdir: TempDir,
-    socket_path: PathBuf,
-    log_path: PathBuf,
-    client: mongodb::Client,
-    server: KillOnDrop,
-    seed: DataSeeder,
+	tempdir: TempDir,
+	socket_path: PathBuf,
+	log_path: PathBuf,
+	client: mongodb::Client,
+	server: KillOnDrop,
+	seed: DataSeeder,
 }
 
 impl std::fmt::Debug for TempMongo {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("TempMongo")
+		f.debug_struct("TempMongo")
             .field("tempdir", &self.tempdir.path())
             .field("socket_path", &self.socket_path())
             .field("log_path", &self.log_path())
@@ -35,136 +35,125 @@ impl std::fmt::Debug for TempMongo {
 }
 
 impl TempMongo {
-    /// Spawn a new MongoDB instance with a temporary state directory.
-    pub async fn new() -> Result<Self, Error> {
-        Self::from_builder(&TempMongoBuilder::new()).await
-    }
+	/// Spawn a new MongoDB instance with a temporary state directory.
+	pub async fn new() -> Result<Self, Error> {
+		Self::from_builder(&TempMongoBuilder::new()).await
+	}
 
-    /// Create a builder to customize your [`TempMongo`].
-    ///
-    /// After configuring the desirec options, run [`TempMongoBuilder::spawn()`].
-    pub fn builder() -> TempMongoBuilder {
-        TempMongoBuilder::new()
-    }
+	/// Create a builder to customize your [`TempMongo`].
+	///
+	/// After configuring the desirec options, run [`TempMongoBuilder::spawn()`].
+	pub fn builder() -> TempMongoBuilder {
+		TempMongoBuilder::new()
+	}
 
-    /// Get the PID of the MongoDB process.
-    pub fn process_id(&self) -> u32 {
-        self.server.id()
-    }
+	/// Get the PID of the MongoDB process.
+	pub fn process_id(&self) -> u32 {
+		self.server.id()
+	}
 
-    /// Get the path of the temporary state directory.
-    pub fn directory(&self) -> &Path {
-        self.tempdir.path()
-    }
+	/// Get the path of the temporary state directory.
+	pub fn directory(&self) -> &Path {
+		self.tempdir.path()
+	}
 
-    /// Get the path of the listening socket of the MongoDB instance.
-    pub fn socket_path(&self) -> &Path {
-        &self.socket_path
-    }
+	/// Get the path of the listening socket of the MongoDB instance.
+	pub fn socket_path(&self) -> &Path {
+		&self.socket_path
+	}
 
-    /// Get the path of the log file of the MongoDB instance.
-    pub fn log_path(&self) -> &Path {
-        &self.log_path
-    }
+	/// Get the path of the log file of the MongoDB instance.
+	pub fn log_path(&self) -> &Path {
+		&self.log_path
+	}
 
-    /// Seed row with &str into mongoDB database instance
-    pub fn seed_row(
-        &self,
-        database_name: &str,
-        collection_name: &str,
-        documents: Vec<Document>,
-    ) -> DataSeeder {
-        self.seed.new_in(database_name, collection_name, documents)
-    }
+	/// Prepare seed document row with &str for db name and collection name into mongoDB database instance
+	pub fn prepare_seed_document(&self, database_name: &str, collection_name: &str, documents: Vec<Document>) -> DataSeeder {
+		self.seed.new_in(database_name, collection_name, documents)
+	}
 
-    /// Seed row with &String into mongoDB database instance
-    pub fn seed_row_string(
-        &self,
-        database_name: &String,
-        collection_name: &String,
-        documents: Vec<Document>,
-    ) -> DataSeeder {
-        self.seed
-            .new_in_with_string(database_name, collection_name, documents)
-    }
+	/// Prepare seed document row with &String for db name and collection name into mongoDB database instance
+	pub fn prepare_seed_document_string(&self, database_name: &String, collection_name: &String, documents: Vec<Document>) -> DataSeeder {
+		self.seed.new_in_with_string(database_name, collection_name, documents)
+	}
 
-    /// Seed document into MongoDB database
-    /// # Arguments
-    /// * `seed_data` - The seed data to insert into the database
-    pub async fn seed_document(&self, seed_data: &DataSeeder) -> mongodb::error::Result<()> {
-        seed_data.seed_document(&self.client).await
-    }
+	/// Seed document into MongoDB database
+	/// # Arguments
+	/// * `seed_data` - The seed data to insert into the database
+	pub async fn seed_document(&self, seed_data: &DataSeeder) -> mongodb::error::Result<()> {
+			seed_data.seed_document(&self.client).await
+	}
 
-    /// Get a client for the MongDB instance.
-    ///
-    /// This returns a client by reference,
-    /// but it can be cloned and sent to other threads or tasks if needed.
-    pub fn client(&self) -> &mongodb::Client {
-        &self.client
-    }
+	/// Get a client for the MongDB instance.
+	///
+	/// This returns a client by reference,
+	/// but it can be cloned and sent to other threads or tasks if needed.
+	pub fn client(&self) -> &mongodb::Client {
+		&self.client
+	}
 
-    /// Enable or disable clean-up of the temporary directory when this object is dropped.
-    pub fn set_clean_on_drop(&mut self, clean_on_drop: bool) {
-        self.tempdir.set_clean_on_drop(clean_on_drop);
-    }
+	/// Enable or disable clean-up of the temporary directory when this object is dropped.
+	pub fn set_clean_on_drop(&mut self, clean_on_drop: bool) {
+		self.tempdir.set_clean_on_drop(clean_on_drop);
+	}
 
-    /// Kill the server and remove the temporary state directory on the filesystem.
-    ///
-    /// Note that the server will also be killed when this object is dropped,
-    /// and unless disabled, the temporary state directory will be removed by the [`Drop`] implementation too.
-    ///
-    /// This function ignores the value of `clean_on_drop`.
-    /// It also allows for better error handling compared to just dropping the object.
-    pub async fn kill_and_clean(mut self) -> Result<(), Error> {
-        self.client.shutdown_immediate().await;
-        self.server.kill().map_err(ErrorInner::KillServer)?;
+	/// Kill the server and remove the temporary state directory on the filesystem.
+	///
+	/// Note that the server will also be killed when this object is dropped,
+	/// and unless disabled, the temporary state directory will be removed by the [`Drop`] implementation too.
+	///
+	/// This function ignores the value of `clean_on_drop`.
+	/// It also allows for better error handling compared to just dropping the object.
+	pub async fn kill_and_clean(mut self) -> Result<(), Error> {
+		self.client.shutdown_immediate().await;
+		self.server.kill()
+		.map_err(ErrorInner::KillServer)?;
 
-        let path = self.tempdir.path().to_owned();
-        self.tempdir
-            .close()
-            .map_err(|e| ErrorInner::CleanDir(path, e))?;
-        Ok(())
-    }
+		let path = self.tempdir.path().to_owned();
+		self.tempdir.close()
+		.map_err(|e| ErrorInner::CleanDir(path, e))?;
+		Ok(())
+	}
 
-    /// Kill the server, but leave the temporary state directory on the filesystem.
-    ///
-    /// Note that the server will also be killed when this object is dropped.
-    ///
-    /// This function ignores the value of `clean_on_drop`.
-    /// It also allows for better error handling compared to just dropping the object.
-    pub async fn kill_no_clean(mut self) -> Result<(), Error> {
-        let _path = self.tempdir.into_path();
-        self.client.shutdown_immediate().await;
-        self.server.kill().map_err(ErrorInner::KillServer)?;
-        Ok(())
-    }
+	/// Kill the server, but leave the temporary state directory on the filesystem.
+	///
+	/// Note that the server will also be killed when this object is dropped.
+	///
+	/// This function ignores the value of `clean_on_drop`.
+	/// It also allows for better error handling compared to just dropping the object.
+	pub async fn kill_no_clean(mut self) -> Result<(), Error> {
+		let _path = self.tempdir.into_path();
+		self.client.shutdown_immediate().await;
+		self.server.kill()
+		.map_err(ErrorInner::KillServer)?;
+		Ok(())
+	}
 
-    /// Advanced printing of documents in a collection
-    /// # Arguments
-    /// * `db_name` - The name of the database
-    /// * `collection_name` - The name of the collection
-    /// # Errors
-    /// Returns an error if any MongoDB operation fails during the printing process.
-    pub async fn print_documents(
-        &self,
-        db_name: &str,
-        collection_name: &str,
-    ) -> mongodb::error::Result<()> {
-        let collection = self.client.database(db_name).collection(collection_name);
 
-        // Query the collection for all documents
-        let mut cursor = collection.find(None, None).await?;
 
-        // Iterate over the documents in the cursor and print them
-        while let Some(result) = cursor.try_next().await? {
-            let document: mongodb::bson::Document = result;
-            println!("{:?}", document);
-        }
+	/// Advanced printing of documents in a collection
+	/// # Arguments
+	/// * `db_name` - The name of the database
+	/// * `collection_name` - The name of the collection
+	/// # Errors
+	/// Returns an error if any MongoDB operation fails during the printing process.
+	pub async fn print_documents(&self, db_name: &str, collection_name: &str) -> mongodb::error::Result<()> {
+		let collection = self.client.database(db_name).collection(collection_name);
+		
+		// Query the collection for all documents
+		let mut cursor = collection.find(None, None).await?;
+		
+		// Iterate over the documents in the cursor and print them
+		while let Some(result) = cursor.try_next().await? {
+			let document: mongodb::bson::Document = result;
+			println!("{:?}", document);
+		}
 
-        Ok(())
-    }
+		Ok(())
+	}
 
-    /// Creates a temporary directory and spawns a MongoDB server based on the configuration
+
+	    /// Creates a temporary directory and spawns a MongoDB server based on the configuration
     /// provided by the `TempMongoBuilder` object. This function is designed to be cross-platform,
     /// supporting both Windows and Unix-based systems (Linux/macOS). It configures the MongoDB
     /// server and client differently depending on the operating system to ensure compatibility.
@@ -272,70 +261,70 @@ impl TempMongo {
 #[derive(Debug)]
 
 pub struct TempMongoBuilder {
-    /// The parent directory for the temporary directory.
-    ///
-    /// Use the system default if set to `None`.
-    parent_directory: Option<PathBuf>,
+	/// The parent directory for the temporary directory.
+	///
+	/// Use the system default if set to `None`.
+	parent_directory: Option<PathBuf>,
 
-    /// Clean up the temprorary directory when the [`TempMongo`] object is dropped.
-    clean_on_drop: bool,
+	/// Clean up the temprorary directory when the [`TempMongo`] object is dropped.
+	clean_on_drop: bool,
 
-    /// The mongdb command to execute.
-    command: Option<OsString>,
+	/// The mongdb command to execute.
+	command: Option<OsString>,
 }
 
 impl TempMongoBuilder {
-    /// Create a new builder.
-    pub fn new() -> Self {
-        Self {
-            parent_directory: None,
-            command: None,
-            clean_on_drop: true,
-        }
-    }
+	/// Create a new builder.
+	pub fn new() -> Self {
+		Self {
+			parent_directory: None,
+			command: None,
+			clean_on_drop: true,
+		}
+	}
 
-    /// Spawn the MongoDB server and connect to it.
-    pub async fn spawn(&self) -> Result<TempMongo, Error> {
-        TempMongo::from_builder(self).await
-    }
+	/// Spawn the MongoDB server and connect to it.
+	pub async fn spawn(&self) -> Result<TempMongo, Error> {
+		TempMongo::from_builder(self).await
+	}
 
-    /// Enable or disable cleaning of the temporary state directory when the [`TempMongo`] object is dropped.
-    ///
-    /// This can also be changed after creation with [`TempMongo::set_clean_on_drop()`].
-    pub fn clean_on_drop(mut self, clean_on_drop: bool) -> Self {
-        self.clean_on_drop = clean_on_drop;
-        self
-    }
+	/// Enable or disable cleaning of the temporary state directory when the [`TempMongo`] object is dropped.
+	///
+	/// This can also be changed after creation with [`TempMongo::set_clean_on_drop()`].
+	pub fn clean_on_drop(mut self, clean_on_drop: bool) -> Self {
+		self.clean_on_drop = clean_on_drop;
+		self
+	}
 
-    /// Overwrite the `mongod` command to run.
-    ///
-    /// Can be used to run a `mongod` binary from an alternative location.
-    pub fn mongod_command(mut self, command: impl Into<OsString>) -> Self {
-        self.command = Some(command.into());
-        self
-    }
+	/// Overwrite the `mongod` command to run.
+	///
+	/// Can be used to run a `mongod` binary from an alternative location.
+	pub fn mongod_command(mut self, command: impl Into<OsString>) -> Self {
+		self.command = Some(command.into());
+		self
+	}
 
-    /// Get the command to execute to run MongoDB.
-    fn get_command(&self) -> &OsStr {
-        self.command.as_deref().unwrap_or("mongod".as_ref())
-    }
+	/// Get the command to execute to run MongoDB.
+	fn get_command(&self) -> &OsStr {
+		self.command.as_deref().unwrap_or("mongod".as_ref())
+	}
 
-    /// Get the command to execute to run MongDB as a string, for diagnostic purposes.
-    fn get_command_string(&self) -> String {
-        self.get_command().to_string_lossy().into()
-    }
+	/// Get the command to execute to run MongDB as a string, for diagnostic purposes.
+	fn get_command_string(&self) -> String {
+		self.get_command().to_string_lossy().into()
+	}
 
-    /// Create a temporary directory according to the configuration of the builder.
-    fn make_temp_dir(&self) -> std::io::Result<TempDir> {
-        match &self.parent_directory {
-            Some(dir) => TempDir::new_in(dir, self.clean_on_drop),
-            None => TempDir::new(self.clean_on_drop),
-        }
-    }
+	/// Create a temporary directory according to the configuration of the builder.
+	fn make_temp_dir(&self) -> std::io::Result<TempDir> {
+		match &self.parent_directory {
+			Some(dir) => TempDir::new_in(dir, self.clean_on_drop),
+			None => TempDir::new(self.clean_on_drop),
+		}
+	}
 }
 
 impl Default for TempMongoBuilder {
-    fn default() -> Self {
-        Self::new()
-    }
+	fn default() -> Self {
+		Self::new()
+	}
 }
