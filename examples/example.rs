@@ -28,31 +28,20 @@ async fn main() {
 		println!("Document: {:#?}", current);
 	}
 
+
 	// Option 1: Using documents directly
 	let documents =  vec![
 		mongodb::bson::doc! {"name": "Alice", "age": 30},
 		mongodb::bson::doc! {"name": "Bob", "age": 25},
-		];
-	let mut seed_data = mongo.seed().new_in("test_db2", "trex", documents);
+	];
+	
+	let seed_data = mongo.seed_row("test_db2", "trex", documents);
 
-	match mongo.seed_data(&seed_data).await {
+	match mongo.seed_document(&seed_data).await {
 		Ok(_) => println!("Data seeded successfully."),
 		Err(e) => println!("Error seeding data: {:?}", e),
 	}
 	
-	// Option 2: Using seeder via excel
-	//seeding data into mongodb instance
-	let path = std::path::Path::new("./spreadsheet.xlsx");
-	let excel = mongo.seed().from_excel(path, "Blad1").unwrap();
-	seed_data = mongo.seed().new_in("test_db2", "trex", excel);
-
-
-	//seeding data into mongodb instance
-	match mongo.seed_data(&seed_data).await {
-		Ok(_) => println!("Data seeded successfully."),
-		Err(e) => println!("Error seeding data: {:?}", e)
-	}
-
 	// Advanced printing 
 	match mongo.print_documents("test_db2", "trex").await {
 		Ok(_) => println!("Data succesfully retrieved."),
@@ -60,5 +49,4 @@ async fn main() {
 	};
 	
 	assert!(let Ok(()) = mongo.kill_and_clean().await); //kills the server and removes the temp state directory
-
 }

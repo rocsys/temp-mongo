@@ -1,26 +1,25 @@
 use std::ffi::{OsStr, OsString};
 use std::path::{Path, PathBuf};
 use std::time::Duration;
-use crate::util::SeedData;
+use crate::util::DataSeeder;
 use futures_util::stream::TryStreamExt;
-
+use mongodb::bson::Document;
 use crate::error::ErrorInner;
 use crate::util::{KillOnDrop, TempDir};
 use crate::Error;
 use std::process::Command;
-use mongodb::options::{ClientOptions, ServerAddress};
 
 /// A temporary MongoDB instance.
 ///
 /// All state of the MongoDB instance is stored in a temporary directory.
 /// Unless disabled, the temporary directory is deleted when this object is dropped.
 pub struct TempMongo {
-	tempdir: TempDir,
-	socket_path: PathBuf,
-	log_path: PathBuf,
-	client: mongodb::Client,
-	server: KillOnDrop,
-	seed: SeedData,
+  tempdir: TempDir,
+  socket_path: PathBuf,
+  log_path: PathBuf,
+  client: mongodb::Client,
+  server: KillOnDrop,
+  seed: DataSeeder,
 }
 
 impl std::fmt::Debug for TempMongo {
@@ -67,17 +66,22 @@ impl TempMongo {
       &self.log_path
     }
 
-    /// Get the path of the log file of the MongoDB instance.
-    pub fn seed(&self) -> &SeedData {
-      &self.seed
+    /// Seed row with &str into mongoDB database instance
+    pub fn seed_row(&self, database_name: &str, collection_name: &str, documents: Vec<Document>) -> DataSeeder {
+      self.seed.new_in(database_name, collection_name, documents)
     }
 
-    /// Seed the MongoDB instance with the given documents.
+    /// Seed row with &String into mongoDB database instance
+    pub fn seed_row_string(&self, database_name: &String, collection_name: &String, documents: Vec<Document>) -> DataSeeder {
+      self.seed.new_in_with_string(database_name, collection_name, documents)
+    }
+
+    /// Seed document into MongoDB database
     /// # Arguments
     /// * `seed_data` - The seed data to insert into the database
-    pub async fn seed_data(&self, seed_data: &SeedData) -> mongodb::error::Result<()> {
-          seed_data.seed(&self.client).await
-      }
+    pub async fn seed_document(&self, seed_data: &DataSeeder) -> mongodb::error::Result<()> {
+          seed_data.seed_document(&self.client).await
+    }
 
     /// Get a client for the MongDB instance.
     ///
@@ -126,7 +130,7 @@ impl TempMongo {
 
 
 
-      /// Advanced printing of documents in a collection
+    /// Advanced printing of documents in a collection
     /// # Arguments
     /// * `db_name` - The name of the database
     /// * `collection_name` - The name of the collection
@@ -148,102 +152,87 @@ impl TempMongo {
     }
 
 
-	/// Creates a temporary directory and spawns a MongoDB server based on the configuration
-	/// provided by the `TempMongoBuilder` object. This function is designed to be cross-platform,
-	/// supporting both Windows and Unix-based systems (Linux/macOS). It configures the MongoDB
-	/// server and client differently depending on the operating system to ensure compatibility.
-	/// 
-	/// # Arguments
-	/// * `builder` - A reference to `TempMongoBuilder` used for configuring the MongoDB instance.
-	/// 
-	/// # Returns
-	/// A `Result` which, on success, contains the `Self` instance representing the running MongoDB
-	/// server and its associated configuration. On failure, it returns an `Error` detailing the issue.
-	/// 
-	/// # Errors
-	/// This function can return errors related to creating temporary directories, starting the MongoDB
-	/// server, and configuring the MongoDB client.
-	async fn from_builder(builder: &TempMongoBuilder) -> Result<Self, Error> {
-		let tempdir = builder.make_temp_dir().map_err(ErrorInner::MakeTempDir)?;
-		let db_dir = tempdir.path().join("db");
-		let log_path = tempdir.path().join("mongod.log");
-		let seed = SeedData::new();
-		
-		// Create MongoDB data directory
-		std::fs::create_dir(&db_dir).map_err(|e| ErrorInner::MakeDbDir(db_dir.clone(), e))?;
-		
-		// Define server address based on OS and start MongoDB server process
-		let server_address: String;
-		let socket_path: PathBuf;
-		#[cfg(windows)]
-		{
-			// For Windows: Use TCP/IP address for MongoDB
-			server_address = "127.0.0.1:27017".to_string();
-			socket_path = PathBuf::from(&server_address);
-		}
-		#[cfg(unix)]
-		{
-			// For Unix-based systems: Use Unix socket for MongoDB
-			server_address = tempdir.path().join("mongod.sock").display().to_string();
-			socket_path = PathBuf::from(&server_address);
-		}
+    /// Creates a temporary directory and spawns a MongoDB server based on the configuration
+    /// provided by the `TempMongoBuilder` object. This function is designed to be cross-platform,
+    /// supporting both Windows and Unix-based systems (Linux/macOS). It configures the MongoDB
+    /// server and client differently depending on the operating system to ensure compatibility.
+    /// 
+    /// # Arguments
+    /// * `builder` - A reference to `TempMongoBuilder` used for configuring the MongoDB instance.
+    /// 
+    /// # Returns
+    /// A `Result` which, on success, contains the `Self` instance representing the running MongoDB
+    /// server and its associated configuration. On failure, it returns an `Error` detailing the issue.
+    /// 
+    /// # Errors
+    /// This function can return errors related to creating temporary directories, starting the MongoDB
+    /// server, and configuring the MongoDB client.
+    async fn from_builder(builder: &TempMongoBuilder) -> Result<Self, Error> {
+      let tempdir = builder.make_temp_dir().map_err(ErrorInner::MakeTempDir)?;
+      let db_dir = tempdir.path().join("db");
+      let log_path = tempdir.path().join("mongod.log");
+      let seed = DataSeeder::new();
+      
+      // Create MongoDB data directory
+      std::fs::create_dir(&db_dir).map_err(|e| ErrorInner::MakeDbDir(db_dir.clone(), e))?;
+      
+      // Define server address based on OS and start MongoDB server process
+      let server_address: String;
+      let socket_path: PathBuf;
 
-		// Start MongoDB server with appropriate arguments
-		let server = Command::new(builder.get_command())
-			.arg("--bind_ip")
-			.arg(&server_address)
-			.arg("--dbpath")
-			.arg(&db_dir)
-			.arg("--logpath")
-			.arg(&log_path)
-			.arg("--noauth")
-			.spawn()
-			.map_err(|e| ErrorInner::SpawnServer(builder.get_command_string(), e))?;
-		let server = KillOnDrop::new(server);
+      #[cfg(windows)]
+      {
+        // For Windows: Use TCP/IP address for MongoDB
+        server_address = "127.0.0.1:27017".to_string();
+        socket_path = PathBuf::from(&server_address);
+      }
+      #[cfg(unix)]
+      {
+        // For Unix-based systems: Use Unix socket for MongoDB
+        server_address = tempdir.path().join("mongod.sock").display().to_string();
+        socket_path = PathBuf::from(&server_address);
+      }
 
-        let mut hosts=Vec::new();
+      // Start MongoDB server with appropriate arguments
+      let server = Command::new(builder.get_command())
+        .arg("--bind_ip")
+        .arg(&server_address)
+        .arg("--dbpath")
+        .arg(&db_dir)
+        .arg("--logpath")
+        .arg(&log_path)
+        .arg("--noauth")
+        .spawn()
+        .map_err(|e| ErrorInner::SpawnServer(builder.get_command_string(), e))?;
+      let server = KillOnDrop::new(server);
 
-        // Conditional configuration based on the target OS
-        #[cfg(unix)]
-        {
-            // For Unix-like systems, use a Unix socket
-            // Ensure `socket_path` is defined appropriately for your environment
-            hosts.push(ServerAddress::Unix { path: socket_path.clone() });
-        }
+      // Configure MongoDB client options compatible with the OS
+      let client_options = mongodb::options::ClientOptions::builder()
+        .hosts(vec![if cfg!(windows) {
+          mongodb::options::ServerAddress::Tcp { host: "127.0.0.1".to_string(), port: Some(27017) }
+        } else {
+          mongodb::options::ServerAddress::Unix { path: socket_path.clone() }
+        }])
+        .connect_timeout(Duration::from_millis(10))
+        .build();
 
-        #[cfg(windows)]
-        {
-            // For Windows, use TCP with localhost and the default MongoDB port
-            hosts.push(ServerAddress::Tcp {
-                host: "127.0.0.1".to_string(),
-                port: Some(27017),
-            });
-        }
+      // Create a MongoDB client with the configured options
+      let client = mongodb::Client::with_options(client_options)
+        .map_err(|e| ErrorInner::Connect(server_address.clone(), e))?;
 
-// Configure MongoDB client options compatible with the OS
-        let client_options = ClientOptions::builder()
-            .hosts(hosts)
-            .connect_timeout(Duration::from_millis(10))
-            .build();
+      // Test MongoDB connection
+      client.list_databases(None, None).await
+        .map_err(|e| ErrorInner::Connect(server_address, e))?;
 
-
-		// Create a MongoDB client with the configured options
-		let client = mongodb::Client::with_options(client_options)
-			.map_err(|e| ErrorInner::Connect(server_address.clone(), e))?;
-
-		// Test MongoDB connection
-		client.list_databases(None, None).await
-			.map_err(|e| ErrorInner::Connect(server_address, e))?;
-
-		Ok(Self {
-			tempdir,
-			socket_path,
-			log_path,
-			server,
-			client,
-			seed,
-		})
-	}
+    Ok(Self {
+        tempdir,
+        socket_path,
+        log_path,
+        server,
+        client,
+        seed,
+      })
+    }
 }
 
 /// Builder for customizing your [`TempMongo`] object.
