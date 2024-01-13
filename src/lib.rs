@@ -32,10 +32,8 @@
 mod error;
 mod temp_mongo;
 mod util;
-mod docker;
 
 pub use error::Error;
-pub use util::DataSeeder;
 pub use temp_mongo::TempMongo;
 pub use temp_mongo::TempMongoBuilder;
-
+pub use util::DataSeeder;
