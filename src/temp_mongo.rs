@@ -37,18 +37,7 @@ impl std::fmt::Debug for TempMongo {
 impl TempMongo {
     /// Spawn a new MongoDB instance with default port configuration.
     pub async fn new() -> Result<Self, Error> {
-        Self::new_with_ports(None, None).await
-    }
-
-    /// Spawn a new MongoDB instance with optional port configuration.
-    pub async fn new_with_ports(
-        start_port: Option<u16>,
-        end_port: Option<u16>,
-    ) -> Result<Self, Error> {
-        let builder = TempMongoBuilder::new()
-            .with_start_port(start_port.unwrap_or(50000))
-            .with_end_port(end_port.unwrap_or(60000));
-        Self::from_builder(&builder).await
+        Self::from_builder(&TempMongoBuilder::new()).await
     }
 
     /// Create a builder to customize your [`TempMongo`].
@@ -302,12 +291,6 @@ pub struct TempMongoBuilder {
 
     /// The mongdb command to execute.
     command: Option<OsString>,
-
-    /// Default start port
-    pub start_port: u16,
-
-    /// Default end port
-    pub end_port: u16,
 }
 
 impl TempMongoBuilder {
@@ -317,8 +300,6 @@ impl TempMongoBuilder {
             parent_directory: None,
             command: None,
             clean_on_drop: true,
-            start_port: 50000,
-            end_port: 60000,
         }
     }
 
@@ -359,18 +340,6 @@ impl TempMongoBuilder {
             Some(dir) => TempDir::new_in(dir, self.clean_on_drop),
             None => TempDir::new(self.clean_on_drop),
         }
-    }
-
-    /// Method to set the start port
-    pub fn with_start_port(mut self, start_port: u16) -> Self {
-        self.start_port = start_port;
-        self
-    }
-
-    /// Method to set the end port
-    pub fn with_end_port(mut self, end_port: u16) -> Self {
-        self.end_port = end_port;
-        self
     }
 }
 

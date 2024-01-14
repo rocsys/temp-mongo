@@ -64,75 +64,57 @@ async fn insert_and_find_multiple_instances() {
     }
 }
 
-
-/// Seeds document into database, retrieves the seeded documents and 
+/// Seeds document into database, retrieves the seeded documents and
 /// tests if the collected documents resemble the input documents
 #[cfg_attr(feature = "tokio-runtime", tokio::test)]
 #[cfg_attr(feature = "async-std-runtime", async_std::test)]
 async fn seeding_document() {
-	let documents = vec![
-		mongodb::bson::doc! {"name": "Alice", "age": 30},
-		mongodb::bson::doc! {"name": "Bob", "age": 25},
-	];
+    let documents = vec![
+        mongodb::bson::doc! {"name": "Alice", "age": 30},
+        mongodb::bson::doc! {"name": "Bob", "age": 25},
+    ];
 
-	// Create a new mongo instance and assert it's created successfully
-	let mongo = TempMongo::new()
-		.await
-		.expect("Failed to create TempMongo instance");
+    // Create a new mongo instance and assert it's created successfully
+    let mongo = TempMongo::new()
+        .await
+        .expect("Failed to create TempMongo instance");
 
-	// Prepare seed document
-	let prepared_seed_data = mongo.prepare_seed_document("test_3", "trex", documents.clone());
+    // Prepare seed document
+    let prepared_seed_data = mongo.prepare_seed_document("test_3", "trex", documents.clone());
 
-	match mongo.seed_document(&prepared_seed_data).await {
-		Ok(_) => println!("Data seeded successfully."),
-		Err(e) => println!("Error seeding data: {:?}", e),
-	}
+    match mongo.seed_document(&prepared_seed_data).await {
+        Ok(_) => println!("Data seeded successfully."),
+        Err(e) => println!("Error seeding data: {:?}", e),
+    }
 
-	// Fetch documents from the database and compare
-	let collection: mongodb::Collection<mongodb::bson::Document> =
-		mongo.client().database("test_3").collection("trex");
-	let mut cursor = collection
-		.find(None, None)
-		.await
-		.expect("Failed to execute find command");
+    // Fetch documents from the database and compare
+    let collection: mongodb::Collection<mongodb::bson::Document> =
+        mongo.client().database("test_3").collection("trex");
+    let mut cursor = collection
+        .find(None, None)
+        .await
+        .expect("Failed to execute find command");
 
-	// Collect documents from cursor
-	let mut fetched_documents = Vec::new();
-	while let Some(doc) = cursor
-		.try_next()
-		.await
-		.expect("Failed during cursor traversal")
-	{
-		fetched_documents.push(doc);
-	}
+    // Collect documents from cursor
+    let mut fetched_documents = Vec::new();
+    while let Some(doc) = cursor
+        .try_next()
+        .await
+        .expect("Failed during cursor traversal")
+    {
+        fetched_documents.push(doc);
+    }
 
-	// Remove '_id' field from the fetched documents
-	for doc in &mut fetched_documents {
-		doc.remove("_id");
-	}
+    // Remove '_id' field from the fetched documents
+    for doc in &mut fetched_documents {
+        doc.remove("_id");
+    }
 
-	// Assert that the fetched documents match what was seeded
-	assert_eq!(
-		documents, fetched_documents,
-		"The seeded documents do not match the fetched documents"
-	);
+    // Assert that the fetched documents match what was seeded
+    assert_eq!(
+        documents, fetched_documents,
+        "The seeded documents do not match the fetched documents"
+    );
 
-	assert!(let Ok(()) = mongo.kill_and_clean().await);
-
-}
-
-
-
-
-/// Testing setting manual port 
-#[cfg_attr(feature = "tokio-runtime", tokio::test)]
-#[cfg_attr(feature = "async-std-runtime", async_std::test)]
-async fn spawn_cargo_with_ports() {
-	// Create a new mongo instance and assert it's created successfully
-	let mongo = TempMongo::new_with_ports(Some(7000), Some(40000))
-		.await
-		.expect("Failed to create TempMongo instance");
-
-	assert!(let Ok(()) = mongo.kill_and_clean().await);
-
+    assert!(let Ok(()) = mongo.kill_and_clean().await);
 }
