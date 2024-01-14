@@ -1,63 +1,64 @@
-use rand::seq::SliceRandom;
-use rand::thread_rng;
 use std::net::TcpListener;
 
-//This implementation might result in a race condition where the free port can be occupied by another process
-//TODO:Check race condition possibility
+/// `PortGenerator` is a utility class for generating an available network port.
+///
+/// This class is particularly useful for scenarios where an application needs to
+/// bind to an available port without specifying a particular one. It leverages the
+/// operating system's ability to select an ephemeral port, ensuring that the chosen
+/// port is free at the time of selection.
+///
+/// The main use case of this class is in situations where a service or a server
+/// instance (like a database server in testing environments) needs to be started
+/// dynamically on a free port to avoid conflicts or for parallel testing.
 
-/// Represents a Port Generator to find available ports within a specified range.
-/// The Port generator stores the port_range to look through, in addition to this it stores a selected_port that is free
 pub struct PortGenerator {
-    port_range: String,
+    /// The port number selected by the operating system.
+    /// This is `None` until `generate()` successfully assigns a port.
     selected_port: Option<u16>,
 }
 
 impl PortGenerator {
-/// Creates a new PortGenerator with the specified port range.
-///
-/// # Arguments
-/// * `start_range` - The starting port number of the range.
-/// * `end_range` - The ending port number of the range.
-pub fn new(start_range: u16, end_range: u16) -> Self {
-    PortGenerator {
-        port_range: format!("{}-{}", start_range, end_range),
-        selected_port: None,
+    /// Constructs a new `PortGenerator`.
+    ///
+    /// Initially, no port is selected (`selected_port` is `None`).
+    /// The `generate` method must be called to select a port.
+    pub fn new() -> Self {
+        PortGenerator {
+            selected_port: None,
+        }
     }
-}
 
-/// Attempts to find a free port within the specified range.
-///
-/// # Returns
-/// `Some(port)` if a free port is found, or `None` if no free port is available.
-//TODO: Maybe we need to return the random number as a Result and implement proper error handeling
-pub fn generate(&mut self) -> &mut Self {
-	let mut rng = thread_rng();
-	let port_range: Vec<u16> = (self.port_range_start()..=self.port_range_end()).collect();
-	let mut shuffled_ports = port_range;
-	shuffled_ports.shuffle(&mut rng);
+    /// Generates and selects an available port.
+    ///
+    /// This method requests the operating system to provide an available ephemeral port
+    /// by binding a `TcpListener` to port `0`. The OS assigns a free port, which is then
+    /// retrieved and stored in `selected_port`.
+    ///
+    /// # Returns
+    ///
+    /// Returns a mutable reference to itself, allowing for method chaining.
 
-	for port in shuffled_ports {
-		if TcpListener::bind(("127.0.0.1", port)).is_ok() {
-			self.selected_port = Some(port);
-			break; // Exit the loop once a port is found
-		}
-	}
+    pub fn generate(&mut self) -> &mut Self {
+        if let Ok(listener) = TcpListener::bind(("127.0.0.1", 0)) {
+            if let Ok(addr) = listener.local_addr() {
+                self.selected_port = Some(addr.port());
+            }
+        }
 
-	self // Return a mutable reference to the object itself
-}
+        self
+    }
 
-/// Gets the start of the port range.
-fn port_range_start(&self) -> u16 {
-	self.port_range.split('-').next().unwrap().parse().unwrap()
-}
+    /// Retrieves the selected port number.
+    ///
+    /// This method returns the port number selected by the `generate` method.
+    /// If `generate` has not been called or was unsuccessful, this will return `None`.
+    ///
+    /// # Returns
+    ///
+    /// An `Option<u16>` representing the selected port.
+    ///
 
-/// Gets the end of the port range.
-fn port_range_end(&self) -> u16 {
-	self.port_range.split('-').last().unwrap().parse().unwrap()
-}
-
-/// Returns the selected port, if available.
-pub fn selected_port(&self) -> Option<u16> {
-	self.selected_port
-}
+    pub fn selected_port(&self) -> Option<u16> {
+        self.selected_port
+    }
 }
