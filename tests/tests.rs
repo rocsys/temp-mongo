@@ -4,6 +4,8 @@ use mongodb::bson::{doc, Document};
 
 use temp_mongo::TempMongo;
 
+//Testing if we can upload a normal document and retrieve it from the temporary database
+//In addition to this we are also testing if the database is truly erased from the system by making use of kill_and_clean
 #[cfg_attr(feature = "tokio-runtime", tokio::test)]
 #[cfg_attr(feature = "async-std-runtime", async_std::test)]
 async fn insert_and_find() -> mongodb::error::Result<()> {
@@ -32,6 +34,7 @@ async fn insert_and_find() -> mongodb::error::Result<()> {
     Ok(())
 }
 
+//Testing spawning asynchronous threads
 #[cfg_attr(feature = "tokio-runtime", tokio::test)]
 #[cfg_attr(feature = "async-std-runtime", async_std::test)]
 async fn insert_and_find_multiple_instances() {
@@ -61,40 +64,7 @@ async fn insert_and_find_multiple_instances() {
     }
 }
 
-#[cfg_attr(feature = "tokio-runtime", tokio::test)]
-#[cfg_attr(feature = "async-std-runtime", async_std::test)]
-async fn insert_and_find_multiple_instances_2() {
-let instance_count = 5;
-
-let handles = (0..instance_count)
-.map(|_| {
-	tokio::spawn(async move {
-		let_assert!(Ok(mongo) = TempMongo::new().await);
-		let database = mongo.client().database("test_2");
-		let collection = database.collection::<Document>("foo");
-
-		let_assert!(Ok(id) = collection.insert_one(doc! { "hello": "world" }, None).await);
-		let_assert!(Some(id) = id.inserted_id.as_object_id());
-		let_assert!(
-			Ok(Some(document)) = collection.find_one(doc! { "_id": id }, None).await
-		);
-		assert_eq!(document, doc! { "_id": id, "hello": "world" });
-		assert!(let Ok(()) = mongo.kill_and_clean().await);
-	})
-})
-.collect::<Vec<_>>();
-
-// Await all handles and check for errors.
-for handle in handles {
-let result = handle.await;
-assert!(result.is_ok());
-}
-}
-
-
-
-/// Seeds document into database, retrieves the seeded documents and 
-/// tests if the collected documents resemble the input documents
+//Testing seeding excel and retrieving data
 #[cfg_attr(feature = "tokio-runtime", tokio::test)]
 #[cfg_attr(feature = "async-std-runtime", async_std::test)]
 async fn seeding_document() {

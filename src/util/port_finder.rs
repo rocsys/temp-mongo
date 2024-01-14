@@ -2,7 +2,11 @@ use rand::seq::SliceRandom;
 use rand::thread_rng;
 use std::net::TcpListener;
 
+//This implementation might result in a race condition where the free port can be occupied by another process
+//TODO:Check race condition possibility
+
 /// Represents a Port Generator to find available ports within a specified range.
+/// The Port generator stores the port_range to look through, in addition to this it stores a selected_port that is free
 pub struct PortGenerator {
     port_range: String,
     selected_port: Option<u16>,
