@@ -22,6 +22,7 @@ impl PortGenerator {
     ///
     /// Initially, no port is selected (`selected_port` is `None`).
     /// The `generate` method must be called to select a port.
+    ///
     pub fn new() -> Self {
         PortGenerator {
             selected_port: None,
