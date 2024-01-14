@@ -64,7 +64,9 @@ async fn insert_and_find_multiple_instances() {
     }
 }
 
-//Testing seeding excel and retrieving data
+
+/// Seeds document into database, retrieves the seeded documents and 
+/// tests if the collected documents resemble the input documents
 #[cfg_attr(feature = "tokio-runtime", tokio::test)]
 #[cfg_attr(feature = "async-std-runtime", async_std::test)]
 async fn seeding_document() {
@@ -114,6 +116,22 @@ async fn seeding_document() {
 		documents, fetched_documents,
 		"The seeded documents do not match the fetched documents"
 	);
+
+	assert!(let Ok(()) = mongo.kill_and_clean().await);
+
+}
+
+
+
+
+/// Testing setting manual port 
+#[cfg_attr(feature = "tokio-runtime", tokio::test)]
+#[cfg_attr(feature = "async-std-runtime", async_std::test)]
+async fn spawn_cargo_with_ports() {
+	// Create a new mongo instance and assert it's created successfully
+	let mongo = TempMongo::new_with_ports(Some(7000), Some(40000))
+		.await
+		.expect("Failed to create TempMongo instance");
 
 	assert!(let Ok(()) = mongo.kill_and_clean().await);
 
