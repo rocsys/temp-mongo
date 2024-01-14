@@ -7,6 +7,6 @@ pub use kill_on_drop::KillOnDrop;
 mod port_finder;
 pub use port_finder::PortGenerator;
 
-mod seed_data_structures;
+mod data_seeder;
 
-pub use seed_data_structures::DataSeeder;
+pub use data_seeder::DataSeeder;
