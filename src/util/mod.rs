@@ -4,5 +4,9 @@ pub use temp_dir::TempDir;
 mod kill_on_drop;
 pub use kill_on_drop::KillOnDrop;
 
+mod port_finder;
+pub use port_finder::PortGenerator;
+
 mod seed_data_structures;
+
 pub use seed_data_structures::DataSeeder;
