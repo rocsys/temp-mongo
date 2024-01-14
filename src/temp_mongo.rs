@@ -24,6 +24,7 @@ pub struct TempMongo {
 }
 
 impl std::fmt::Debug for TempMongo {
+<<<<<<< Updated upstream
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("TempMongo")
             .field("tempdir", &self.tempdir.path())
@@ -274,6 +275,237 @@ impl TempMongo {
             seed,
         })
     }
+=======
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		f.debug_struct("TempMongo")
+			.field("tempdir", &self.tempdir.path())
+			.field("socket_path", &self.socket_path())
+			.field("log_path", &self.log_path())
+			.field("server_pid", &self.server.id())
+			.finish_non_exhaustive()
+	}
+	}
+
+	impl TempMongo {
+	/// Spawn a new MongoDB instance with a temporary state directory.
+	pub async fn new() -> Result<Self, Error> {
+		Self::from_builder(&TempMongoBuilder::new()).await
+	}
+
+	/// Create a builder to customize your [`TempMongo`].
+	///
+	/// After configuring the desirec options, run [`TempMongoBuilder::spawn()`].
+	pub fn builder() -> TempMongoBuilder {
+		TempMongoBuilder::new()
+	}
+
+	/// Get the PID of the MongoDB process.
+	pub fn process_id(&self) -> u32 {
+		self.server.id()
+	}
+
+	/// Get the path of the temporary state directory.
+	pub fn directory(&self) -> &Path {
+		self.tempdir.path()
+	}
+
+	/// Get the path of the listening socket of the MongoDB instance.
+	pub fn socket_path(&self) -> &Path {
+		&self.socket_path
+	}
+
+	/// Get the path of the log file of the MongoDB instance.
+	pub fn log_path(&self) -> &Path {
+		&self.log_path
+	}
+
+	/// Prepare seed document row with &str for db name and collection name into mongoDB database instance
+	pub fn prepare_seed_document(&self, database_name: &str, collection_name: &str, documents: Vec<Document>) -> DataSeeder {
+		self.seed.new_in(database_name, collection_name, documents)
+	}
+
+	/// Prepare seed document row with &String for db name and collection name into mongoDB database instance
+	pub fn prepare_seed_document_string(&self, database_name: &String, collection_name: &String, documents: Vec<Document>) -> DataSeeder {
+		self.seed.new_in_with_string(database_name, collection_name, documents)
+	}
+
+	/// Seed document into MongoDB database
+	/// # Arguments
+	/// * `seed_data` - The seed data to insert into the database
+	pub async fn seed_document(&self, seed_data: &DataSeeder) -> mongodb::error::Result<()> {
+			seed_data.seed_document(&self.client).await
+	}
+
+	/// Get a client for the MongDB instance.
+	///
+	/// This returns a client by reference,
+	/// but it can be cloned and sent to other threads or tasks if needed.
+	pub fn client(&self) -> &mongodb::Client {
+		&self.client
+	}
+
+	/// Enable or disable clean-up of the temporary directory when this object is dropped.
+	pub fn set_clean_on_drop(&mut self, clean_on_drop: bool) {
+		self.tempdir.set_clean_on_drop(clean_on_drop);
+	}
+
+	/// Kill the server and remove the temporary state directory on the filesystem.
+	///
+	/// Note that the server will also be killed when this object is dropped,
+	/// and unless disabled, the temporary state directory will be removed by the [`Drop`] implementation too.
+	///
+	/// This function ignores the value of `clean_on_drop`.
+	/// It also allows for better error handling compared to just dropping the object.
+	pub async fn kill_and_clean(mut self) -> Result<(), Error> {
+		self.client.shutdown_immediate().await;
+		self.server.kill()
+		.map_err(ErrorInner::KillServer)?;
+
+		let path = self.tempdir.path().to_owned();
+		self.tempdir.close()
+		.map_err(|e| ErrorInner::CleanDir(path, e))?;
+		Ok(())
+	}
+
+	/// Kill the server, but leave the temporary state directory on the filesystem.
+	///
+	/// Note that the server will also be killed when this object is dropped.
+	///
+	/// This function ignores the value of `clean_on_drop`.
+	/// It also allows for better error handling compared to just dropping the object.
+	pub async fn kill_no_clean(mut self) -> Result<(), Error> {
+		let _path = self.tempdir.into_path();
+		self.client.shutdown_immediate().await;
+		self.server.kill()
+		.map_err(ErrorInner::KillServer)?;
+		Ok(())
+	}
+
+
+
+	/// Advanced printing of documents in a collection
+	/// # Arguments
+	/// * `db_name` - The name of the database
+	/// * `collection_name` - The name of the collection
+	/// # Errors
+	/// Returns an error if any MongoDB operation fails during the printing process.
+	pub async fn print_documents(&self, db_name: &str, collection_name: &str) -> mongodb::error::Result<()> {
+		let collection = self.client.database(db_name).collection(collection_name);
+		
+		// Query the collection for all documents
+		let mut cursor = collection.find(None, None).await?;
+		
+		// Iterate over the documents in the cursor and print them
+		while let Some(result) = cursor.try_next().await? {
+			let document: mongodb::bson::Document = result;
+			println!("{:?}", document);
+		}
+
+		Ok(())
+	}
+
+
+		/// Creates a temporary directory and spawns a MongoDB server based on the configuration
+	/// provided by the `TempMongoBuilder` object. This function is designed to be cross-platform,
+	/// supporting both Windows and Unix-based systems (Linux/macOS). It configures the MongoDB
+	/// server and client differently depending on the operating system to ensure compatibility.
+	///
+	/// # Arguments
+	/// * `builder` - A reference to `TempMongoBuilder` used for configuring the MongoDB instance.
+	///
+	/// # Returns
+	/// A `Result` which, on success, contains the `Self` instance representing the running MongoDB
+	/// server and its associated configuration. On failure, it returns an `Error` detailing the issue.
+	///
+	/// # Errors
+	/// This function can return errors related to creating temporary directories, starting the MongoDB
+	/// server, and configuring the MongoDB client.
+	async fn from_builder(builder: &TempMongoBuilder) -> Result<Self, Error> {
+		let tempdir = builder.make_temp_dir().map_err(ErrorInner::MakeTempDir)?;
+		let db_dir = tempdir.path().join("db");
+		let log_path = tempdir.path().join("mongod.log");
+		let seed = DataSeeder::new();
+
+		// Create MongoDB data directory
+		std::fs::create_dir(&db_dir).map_err(|e| ErrorInner::MakeDbDir(db_dir.clone(), e))?;
+
+		// Define server address based on OS and start MongoDB server process
+		let server_address: String;
+		let socket_path: PathBuf;
+
+		#[cfg(windows)]
+		{
+			// For Windows: Use TCP/IP address for MongoDB
+			server_address = "127.0.0.1:27017".to_string();
+			socket_path = PathBuf::from(&server_address);
+		}
+		#[cfg(unix)]
+		{
+			// For Unix-based systems: Use Unix socket for MongoDB
+			server_address = tempdir.path().join("mongod.sock").display().to_string();
+			socket_path = PathBuf::from(&server_address);
+		}
+
+		// Start MongoDB server with appropriate arguments
+		let server = Command::new(builder.get_command())
+			.arg("--bind_ip")
+			.arg(&server_address)
+			.arg("--dbpath")
+			.arg(&db_dir)
+			.arg("--logpath")
+			.arg(&log_path)
+			.arg("--noauth")
+			.spawn()
+			.map_err(|e| ErrorInner::SpawnServer(builder.get_command_string(), e))?;
+		let server = KillOnDrop::new(server);
+
+		let mut hosts = Vec::new();
+
+		// Conditional configuration based on the target OS
+		#[cfg(unix)]
+		{
+			// For Unix-like systems, use a Unix socket
+			// Ensure `socket_path` is defined appropriately for your environment
+			hosts.push(ServerAddress::Unix {
+				path: socket_path.clone(),
+			});
+		}
+
+		#[cfg(windows)]
+		{
+			// For Windows, use TCP with localhost and the default MongoDB port
+			hosts.push(ServerAddress::Tcp {
+				host: "127.0.0.1".to_string(),
+				port: Some(27017),
+			});
+		}
+
+		// Configure MongoDB client options compatible with the OS
+		let client_options = ClientOptions::builder()
+			.hosts(hosts)
+			.connect_timeout(Duration::from_millis(10))
+			.build();
+
+		// Create a MongoDB client with the configured options
+		let client = mongodb::Client::with_options(client_options)
+			.map_err(|e| ErrorInner::Connect(server_address.clone(), e))?;
+
+		// Test MongoDB connection
+		client
+			.list_databases(None, None)
+			.await
+			.map_err(|e| ErrorInner::Connect(server_address, e))?;
+
+		Ok(Self {
+			tempdir,
+			socket_path,
+			log_path,
+			server,
+			client,
+			seed,
+		})
+	}
+>>>>>>> Stashed changes
 }
 
 /// Builder for customizing your [`TempMongo`] object.
