@@ -8,5 +8,4 @@ mod port_finder;
 pub use port_finder::PortGenerator;
 
 mod data_seeder;
-
 pub use data_seeder::DataSeeder;
