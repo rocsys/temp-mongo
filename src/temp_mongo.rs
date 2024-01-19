@@ -91,7 +91,7 @@ impl TempMongo {
 	/// Seed document into MongoDB database
 	/// # Arguments
 	/// * `seed_data` - The seed data to insert into the database
-	pub async fn seed_document(&self, seed_data: &DataSeeder) -> mongodb::error::Result<()> {
+	pub async fn load_document(&self, seed_data: &DataSeeder) -> mongodb::error::Result<()> {
 		seed_data.seed_document(&self.client).await
 	}
 

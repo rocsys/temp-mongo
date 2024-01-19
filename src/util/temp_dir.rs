@@ -14,7 +14,7 @@ pub struct TempDir {
 }
 
 impl TempDir {
-	/// Create a new temporary directory in the system tempdir. (for unix this is /tmp)
+	/// Create a new temporary directory in the system tempdir
 	pub fn new(clean_on_drop: bool) -> std::io::Result<Self> {
 		Ok(Self {
 			inner: ManuallyDrop::new(tempfile::tempdir()?),

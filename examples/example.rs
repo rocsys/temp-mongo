@@ -5,39 +5,24 @@ use temp_mongo::TempMongo;
 #[cfg_attr(feature = "tokio-runtime", tokio::main)]
 #[cfg_attr(feature = "async-std-runtime", async_std::main)]
 async fn main() {
-    let_assert!(Ok(mongo) = TempMongo::new().await); //new mongo instance
-    println!("Temporary directory: {}", mongo.directory().display()); //directory().display() --> gets path to temp state directory and displays it
+   // Start a new mongo instance and print the path of the temporary state directory.
+let_assert!(Ok(mongo) = TempMongo::new().await);
+	println!("Temporary directory: {}", mongo.directory().display());
 
-    let database = mongo.client().database("test_example_1"); // calls database method on mongo instance and passes in "test" as the database name
-    let collection = database.collection::<Document>("animals"); // calls collection method on database and passes in "animals" as the collection name
+    // Create a "test" database with an "animals" collection.
+	let database = mongo.client().database("test");
+	let collection = database.collection::<Document>("animals");
 
-    let_assert!(
-        Ok(dog) = collection
-            .insert_one(
-                doc! { "species": "dog", "cute": "yes", "scary": "usually not" },
-                None
-            )
-            .await
-    ); //inserts a document into the collection
-    let_assert!(
-        Ok(t_rex) = collection
-            .insert_one(
-                doc! { "species": "T-Rex", "cute": "maybe", "scary": "yes" },
-                None
-            )
-            .await
-    ); //inserts a document into the collection
+    // Insert two documents in the created collection and print their IDs.
+	let_assert!(Ok(dog) = collection.insert_one(doc! { "species": "dog", "cute": "yes", "scary": "usually not" }, None).await);
+	let_assert!(Ok(t_rex) = collection.insert_one(doc! { "species": "T-Rex", "cute": "maybe", "scary": "yes" }, None).await);
 
-    println!(
-        "Inserted \"dog\" with ID: {}",
-        dog.inserted_id.as_object_id().unwrap()
-    ); //prints the inserted document's ID
-    println!(
-        "Inserted \"T-Rex\" with ID: {}",
-        t_rex.inserted_id.as_object_id().unwrap()
-    ); //prints the inserted document's ID
+    println!("Inserted \"dog\" with ID: {}", dog.inserted_id.as_object_id().unwrap()); 
+	println!("Inserted \"T-Rex\" with ID: {}", t_rex.inserted_id.as_object_id().unwrap()); 
 
-    let_assert!(Ok(mut documents) = collection.find(None, None).await); //finds all documents in the collection
+    // Find all documents in the collection and print them.
+    let_assert!(Ok(mut documents) = collection.find(None, None).await);
+
     loop {
         let_assert!(Ok(more) = documents.advance().await);
         if !more {
@@ -47,26 +32,11 @@ async fn main() {
         println!("Document: {:#?}", current);
     }
 
-    // Option 1: Using documents directly
-    let documents = vec![
-        mongodb::bson::doc! {"name": "Alice", "age": 30},
-        mongodb::bson::doc! {"name": "Bob", "age": 25},
-    ];
+    // Kill the mongo server and remove the temporary state directory.
+	// This is done if the `mongo` object is dropped automatically,
+	// but by calling `kill_and_clean()` explicitly you can do better error reporting.
+	assert!(let Ok(()) = mongo.kill_and_clean().await);
 
-    let prepared_seed_data = mongo.prepare_seed_document("test_example_1_excel", "trex", documents);
-
-    match mongo.seed_document(&prepared_seed_data).await {
-        Ok(_) => println!("Data seeded successfully."),
-        Err(e) => println!("Error seeding data: {:?}", e),
-    }
-
-    // Advanced printing
-    match mongo.print_documents("test_example_1_excel", "trex").await {
-        Ok(_) => println!("Data succesfully retrieved."),
-        Err(e) => println!("Error retrieving data: {:?}", e),
-    };
-
-    assert!(let Ok(()) = mongo.kill_and_clean().await); //kills the server and removes the temp state directory
 }
 
 

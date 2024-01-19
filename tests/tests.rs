@@ -82,7 +82,7 @@ async fn seeding_document() {
     // Prepare seed document
     let prepared_seed_data = mongo.prepare_seed_document("test_3", "trex", documents.clone());
 
-    match mongo.seed_document(&prepared_seed_data).await {
+    match mongo.load_document(&prepared_seed_data).await {
         Ok(_) => println!("Data seeded successfully."),
         Err(e) => println!("Error seeding data: {:?}", e),
     }
