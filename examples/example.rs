@@ -68,3 +68,5 @@ async fn main() {
 
     assert!(let Ok(()) = mongo.kill_and_clean().await); //kills the server and removes the temp state directory
 }
+
+
