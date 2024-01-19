@@ -24,7 +24,10 @@ pub struct TempMongo {
 }
 
 impl std::fmt::Debug for TempMongo {
+<<<<<<< HEAD
 <<<<<<< Updated upstream
+=======
+>>>>>>> 62b1e69c7142f7c78522f73e33a0c5079892467e
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		f.debug_struct("TempMongo")
 			.field("tempdir", &self.tempdir.path())
@@ -33,6 +36,7 @@ impl std::fmt::Debug for TempMongo {
 			.field("server_pid", &self.server.id())
 			.finish_non_exhaustive()
 	}
+<<<<<<< HEAD
 =======
 fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
     f.debug_struct("TempMongo")
@@ -43,6 +47,8 @@ fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         .finish_non_exhaustive()
 }
 >>>>>>> Stashed changes
+=======
+>>>>>>> 62b1e69c7142f7c78522f73e33a0c5079892467e
 }
 
 impl TempMongo {
@@ -175,6 +181,7 @@ impl TempMongo {
 
 		Ok(())
 	}
+<<<<<<< HEAD
 
 	/// Creates a temporary directory and spawns a MongoDB server based on the configuration
 	/// provided by the `TempMongoBuilder` object. This function is designed to be cross-platform,
@@ -280,6 +287,112 @@ impl TempMongo {
 			.await
 			.map_err(|e| ErrorInner::Connect(server_address, e))?;
 
+=======
+	/// Creates a temporary directory and spawns a MongoDB server based on the configuration
+	/// provided by the `TempMongoBuilder` object. This function is designed to be cross-platform,
+	/// supporting both Windows and Unix-based systems (Linux/macOS). It configures the MongoDB
+	/// server and client differently depending on the operating system to ensure compatibility.
+	///
+	/// # Arguments
+	/// * `builder` - A reference to `TempMongoBuilder` used for configuring the MongoDB instance.
+	///
+	/// # Returns
+	/// A `Result` which, on success, contains the `Self` instance representing the running MongoDB
+	/// server and its associated configuration. On failure, it returns an `Error` detailing the issue.
+	///
+	/// # Errors
+	/// This function can return errors related to creating temporary directories, starting the MongoDB
+	/// server, and configuring the MongoDB client.
+	async fn from_builder(builder: &TempMongoBuilder) -> Result<Self, Error> {
+		let tempdir = builder.make_temp_dir().map_err(ErrorInner::MakeTempDir)?;
+		let db_dir = tempdir.path().join("db");
+		let log_path = tempdir.path().join("mongod.log");
+		let seed = DataSeeder::new();
+
+		std::fs::create_dir(&db_dir).map_err(|e| ErrorInner::MakeDbDir(db_dir.clone(), e))?;
+
+		let server_address: String;
+		let socket_path: PathBuf;
+
+		#[cfg(windows)]
+		{
+			server_address = "localhost".to_string();
+			socket_path = PathBuf::from(&server_address);
+		}
+		#[cfg(unix)]
+		{
+			// For Unix-based systems: Use Unix socket for MongoDB
+			server_address = tempdir.path().join("mongod.sock").display().to_string();
+			socket_path = PathBuf::from(&server_address);
+		}
+
+		let mut port_generator = PortGenerator::new();
+		let random_port = port_generator.generate();
+
+		let mongodb_port = random_port.selected_port().ok_or_else(|| {
+			let error: ErrorInner = ErrorInner::Port.into();
+			eprintln!("Error: {}", error);
+			error
+		})?;
+
+		//TODO: Add some error handling when spawning the service
+		//We might need to hide away the spawning of the server in a new class
+		let server = Command::new(builder.get_command())
+			.arg("--bind_ip")
+			.arg(&server_address)
+			.arg("--dbpath")
+			.arg(&db_dir)
+			.arg("--logpath")
+			.arg(&log_path)
+			.arg("--noauth")
+			.arg("--port")
+			.arg(mongodb_port.to_string())
+			.stdout(Stdio::piped())
+			.stderr(Stdio::piped())
+			.spawn()
+			.map_err(|e| ErrorInner::SpawnServer(builder.get_command_string(), e))?;
+
+		let server = KillOnDrop::new(server);
+
+		let mut hosts = Vec::new();
+
+		#[cfg(unix)]
+		{
+			// For Unix-like systems, use a Unix socket
+			hosts.push(ServerAddress::Unix {
+				path: socket_path.clone(),
+			});
+
+			// Debugging: Print the Unix socket path
+			println!(
+				"Using Unix socket for MongoDB connection: {:?}",
+				socket_path
+			);
+		}
+
+		#[cfg(windows)]
+		{
+			hosts.push(ServerAddress::Tcp {
+				host: "localhost".parse().unwrap(),
+				port: Some(mongodb_port),
+			});
+		}
+
+		let client_options = ClientOptions::builder()
+			.hosts(hosts)
+			.connect_timeout(Duration::from_millis(100))
+			.direct_connection(true)
+			.build();
+
+		let client = mongodb::Client::with_options(client_options.clone())
+			.map_err(|e| ErrorInner::Connect(server_address.clone(), e))?;
+
+		client
+			.list_databases(None, None)
+			.await
+			.map_err(|e| ErrorInner::Connect(server_address, e))?;
+
+>>>>>>> 62b1e69c7142f7c78522f73e33a0c5079892467e
 		Ok(Self {
 			tempdir,
 			socket_path,
