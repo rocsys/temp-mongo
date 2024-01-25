@@ -1,3 +1,6 @@
+# Unreleased
+- [change][minor] Disable retryable reads and writes in the client.
+
 # Version 0.1.2 - 2023-12-07
 - [add][minor] Implement `Debug` for `TempMongo` and `TempMongoBuilder`.
 

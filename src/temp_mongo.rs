@@ -134,6 +134,8 @@ impl TempMongo {
 		let client_options = mongodb::options::ClientOptions::builder()
 			.hosts(vec![mongodb::options::ServerAddress::Unix { path: socket_path.clone() }])
 			.connect_timeout(Duration::from_millis(10))
+			.retry_reads(false)
+			.retry_writes(false)
 			.build();
 		let client = mongodb::Client::with_options(client_options)
 			.map_err(|e| ErrorInner::Connect(socket_path.display().to_string(), e))?;
